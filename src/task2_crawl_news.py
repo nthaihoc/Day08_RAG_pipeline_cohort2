@@ -28,12 +28,13 @@ class NewsCrawler:
             
             # Trích xuất metadata và nội dung
             article_data = {
+                "url": url,                  # <--- THÊM DÒNG NÀY ĐỂ PASS TEST
                 "metadata": {
                     "source_url": url,
                     "crawled_at": datetime.now().isoformat(),
                     "title": result.metadata.get('title', f"News Article {index}") if result.metadata else f"Article {index}"
                 },
-                "content": result.markdown # Lấy luôn markdown từ crawl4ai cho sạch
+                "content": result.markdown
             }
             
             # Lưu ra file JSON
