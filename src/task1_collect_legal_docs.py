@@ -1,47 +1,43 @@
-"""
-Task 1 — Thu thập văn bản pháp luật về ma tuý và các chất cấm.
+import os
+import requests
+import logging
 
-Hướng dẫn:
-    1. Tìm tối thiểu 3 văn bản pháp luật (PDF/DOCX) từ các nguồn chính thống.
-    2. Tải về và lưu vào data/landing/legal/
-    3. Đặt tên file rõ ràng, không dấu, có năm ban hành.
+# Cấu hình logging để dễ debug
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-Gợi ý nguồn:
-    - https://thuvienphapluat.vn
-    - https://vanban.chinhphu.vn
-    - https://luatvietnam.vn
+class LegalDocCollector:
+    def __init__(self, output_dir: str = "data/landing/legal"):
+        self.output_dir = output_dir
+        os.makedirs(self.output_dir, exist_ok=True)
+        
+        # Danh sách các link PDF mẫu (Bạn có thể thay thế bằng link thực tế tải từ thư viện pháp luật)
+        self.target_docs = {
+            "luat-phong-chong-ma-tuy-2021.pdf": "https://file1.ttthvn.com/file/VB_BoCongAn/Luat-phong-chong-ma-tuy.pdf",
+            "nghi-dinh-105-2021.pdf": "https://file1.ttthvn.com/file/VB_BoCongAn/Nghi-dinh-105-2021-ND-CP.pdf",
+            "bo-luat-hinh-su-2015.pdf": "https://file1.ttthvn.com/file/VB_BoCongAn/Bo-luat-hinh-su-2015.pdf"
+        }
 
-Gợi ý văn bản:
-    - Luật Phòng, chống ma tuý 2021 (73/2021/QH15)
-    - Nghị định 105/2021/NĐ-CP
-    - Bộ luật Hình sự 2015 (sửa đổi 2017) - Chương XX
-    - Nghị định 57/2022/NĐ-CP về danh mục chất ma tuý
-"""
+    def download_file(self, url: str, filename: str):
+        filepath = os.path.join(self.output_dir, filename)
+        try:
+            logging.info(f"Đang tải: {filename}...")
+            response = requests.get(url, stream=True, timeout=15)
+            response.raise_for_status() # Báo lỗi nếu HTTP status != 200
+            
+            with open(filepath, 'wb') as f:
+                for chunk in response.iter_content(chunk_size=8192):
+                    f.write(chunk)
+            logging.info(f"Thành công: Đã lưu {filename}")
+        except Exception as e:
+            logging.error(f"Thất bại khi tải {filename}: {e}")
+            logging.warning(f"-> Vui lòng tải thủ công file này và lưu vào {filepath}")
 
-from pathlib import Path
-
-DATA_DIR = Path(__file__).parent.parent / "data" / "landing" / "legal"
-
-
-def setup_directory():
-    """Tạo thư mục data/landing/legal/ nếu chưa có."""
-    DATA_DIR.mkdir(parents=True, exist_ok=True)
-    print(f"✓ Thư mục đã sẵn sàng: {DATA_DIR}")
-
-
-# TODO: Tải file PDF/DOCX về DATA_DIR
-# Có thể tải thủ công hoặc viết script download nếu có direct link.
-#
-# Ví dụ nếu có direct link:
-#
-# import requests
-#
-# def download_file(url: str, filename: str):
-#     response = requests.get(url)
-#     filepath = DATA_DIR / filename
-#     filepath.write_bytes(response.content)
-#     print(f"✓ Đã tải: {filepath}")
-
+    def run(self):
+        logging.info("--- BẮT ĐẦU TASK 1: THU THẬP TÀI LIỆU PHÁP LUẬT ---")
+        for filename, url in self.target_docs.items():
+            self.download_file(url, filename)
+        logging.info("--- HOÀN THÀNH TASK 1 ---")
 
 if __name__ == "__main__":
-    setup_directory()
+    collector = LegalDocCollector()
+    collector.run()

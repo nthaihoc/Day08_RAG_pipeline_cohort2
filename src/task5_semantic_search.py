@@ -1,66 +1,44 @@
-"""
-Task 5 — Semantic Search Module.
+import chromadb
+from chromadb.utils import embedding_functions
 
-Viết module tìm kiếm ngữ nghĩa (dense retrieval) trên vector store.
-
-Yêu cầu:
-    - Input: query string + top_k
-    - Output: danh sách chunks có score, sorted descending
-    - Phải tương thích với embedding model và vector store ở Task 4
-"""
-
+# Khởi tạo connection dùng chung
+db_client = chromadb.PersistentClient(path="data/vector_db")
+embedding_fn = embedding_functions.SentenceTransformerEmbeddingFunction(model_name="BAAI/bge-m3")
+collection = db_client.get_collection(name="drug_law_news", embedding_function=embedding_fn)
 
 def semantic_search(query: str, top_k: int = 10) -> list[dict]:
     """
-    Tìm kiếm ngữ nghĩa sử dụng vector similarity.
-
-    Args:
-        query: Câu truy vấn
-        top_k: Số lượng kết quả tối đa
-
-    Returns:
-        List of {
-            'content': str,      # Nội dung chunk
-            'score': float,      # Cosine similarity score
-            'metadata': dict     # source, doc_type, chunk_index
-        }
-        Sorted by score descending.
+    Thực hiện Semantic Search sử dụng ChromaDB.
+    Returns: List of {'content': str, 'score': float, 'metadata': dict}
     """
-    # TODO: Implement semantic search
-    #
-    # Bước 1: Embed query bằng cùng model ở Task 4
-    # Bước 2: Query vector store (cosine similarity)
-    # Bước 3: Return top_k results
-    #
-    # Ví dụ với Weaviate:
-    # import weaviate
-    # from sentence_transformers import SentenceTransformer
-    #
-    # model = SentenceTransformer("BAAI/bge-m3")
-    # query_embedding = model.encode(query).tolist()
-    #
-    # client = weaviate.connect_to_local()
-    # collection = client.collections.get("DrugLawDocs")
-    #
-    # results = collection.query.near_vector(
-    #     near_vector=query_embedding,
-    #     limit=top_k,
-    #     return_metadata=MetadataQuery(distance=True)
-    # )
-    #
-    # return [
-    #     {
-    #         "content": obj.properties["content"],
-    #         "score": 1 - obj.metadata.distance,  # distance → similarity
-    #         "metadata": {"source": obj.properties["source"], ...}
-    #     }
-    #     for obj in results.objects
-    # ]
-    raise NotImplementedError("Implement semantic_search")
-
+    results = collection.query(
+        query_texts=[query],
+        n_results=top_k,
+        include=["documents", "metadatas", "distances"]
+    )
+    
+    formatted_results = []
+    # ChromaDB trả về list lồng nhau, ta cần bóc tách
+    docs = results['documents'][0]
+    metas = results['metadatas'][0]
+    distances = results['distances'][0] # Khoảng cách (càng nhỏ càng giống)
+    
+    for doc, meta, dist in zip(docs, metas, distances):
+        # Chuyển đổi distance thành score (càng cao càng tốt) để dễ tính toán sau này
+        score = 1.0 / (1.0 + dist) 
+        
+        formatted_results.append({
+            'content': doc,
+            'score': float(score),
+            'metadata': meta
+        })
+        
+    # Sắp xếp giảm dần theo điểm (dù ChromaDB đã xếp sẵn)
+    formatted_results = sorted(formatted_results, key=lambda x: x['score'], reverse=True)
+    return formatted_results
 
 if __name__ == "__main__":
-    # Test
-    results = semantic_search("hình phạt cho tội tàng trữ ma tuý", top_k=5)
-    for r in results:
-        print(f"[{r['score']:.3f}] {r['content'][:100]}...")
+    # Test thử
+    query = "Hành vi tổ chức sử dụng ma túy bị xử lý như thế nào?"
+    res = semantic_search(query, top_k=3)
+    print(f"Top 1 Semantic: {res[0]['content'][:100]}... | Score: {res[0]['score']}")
